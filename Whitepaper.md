@@ -177,6 +177,8 @@ Now, let's explore how Alice can securely send a confidential message to Bob. Sh
 
 ```python
 # Python code for encryption and sending by Alice with CMS
+# Install the cms library: 
+#  pip install cms
 from OpenSSL import crypto
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
@@ -222,9 +224,29 @@ def encrypt_message(message, recipient_public_key_path):
 
 def create_cms(encrypted_message, signature):
     try:
-        cms = encrypted_message + b'\n' + signature
+        signers = [
+            SignedData.SignerInfo(
+                signer_identifier=bytes(sender_certificate.subject),
+                signed_attrs=[
+                    SignedData.SignedAttribute(
+                        oid=SignedData.CMSAttributeType.message_digest,
+                        values=[hashes.Hash(hashes.SHA256(), encrypted_message).digest()]
+                    ),
+                ],
+                signature_algorithm=SignedData.RSASignatureAlgorithm(
+                    padding.PKCS1v15(), hashes.SHA256()
+                ),
+                signature=signature,
+            )
+        ]
+
+        cms_data = SignedData(
+            data=encrypted_message,
+            signers=signers,
+        )
+
         with open('alice_message.cms', 'wb') as f:
-            f.write(cms)
+            f.write(cms_data.dump())
         print("CMS created and saved as 'alice_message.cms'")
     except Exception as e:
         print("Error creating CMS:", e)
@@ -298,10 +320,13 @@ if __name__ == "__main__":
     cms_file_path = 'alice_message.cms'
     bank_certificate_path = 'bank_certificate.pem'
 
+     with open('alice_message.cms', 'rb') as f:
+        cms_data = SignedData.load(f.read())
+
     # Extract encrypted message and signature from the CMS file
     # (Assuming you have a method to extract components from the CMS)
-    encrypted_message = b"SOME_ENCRYPTED_MESSAGE_HERE"
-    signature = b'SOME_SIGNATURE_HERE'
+    encrypted_message = cms_data.data
+    signature = cms_data.signers[0].signature
     sender_certificate_path = 'alice_certificate.pem'
 
     verify_certificate(sender_certificate_path, bank_certificate_path)
