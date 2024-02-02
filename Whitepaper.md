@@ -119,22 +119,34 @@ In this scenario, Bob receives a digitally signed message from Alice. To verify 
 # Python code to verify digital signature
 from OpenSSL import crypto
 
-# Load Alice's signed message and the bank's certificate
-with open('signed_message.txt', 'rb') as f:
-    signed_message = f.read()
-with open('bank_certificate.pem', 'rb') as f:
-    bank_certificate = f.read()
+def verify_signature(signed_message_path, bank_certificate_path, signature):
+    try:
+        # Load Alice's signed message and the bank's certificate
+        with open(signed_message_path, 'rb') as f:
+            signed_message = f.read()
+        with open(bank_certificate_path, 'rb') as f:
+            bank_certificate = f.read()
 
-# Extract public key from the bank's certificate
-cert = crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate)
-pub_key = cert.get_pubkey()
+        # Extract public key from the bank's certificate
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate)
+        pub_key = cert.get_pubkey()
 
-# Verify the signature using Alice's public key and the bank's certificate
-try:
-    crypto.verify(pub_key, signature, signed_message, 'sha256')
-    print("Signature verification successful!")
-except crypto.Error as e:
-    print("Signature verification failed:", e)
+        # Verify the signature using Alice's public key and the bank's certificate
+        crypto.verify(pub_key, signature, signed_message, 'sha256')
+        print("Signature verification successful!")
+    except FileNotFoundError:
+        print("File not found. Please provide correct file paths.")
+    except crypto.Error as e:
+        print("Signature verification failed:", e)
+
+# Example usage
+if __name__ == "__main__":
+    signed_message_path = 'signed_message.txt'
+    bank_certificate_path = 'bank_certificate.pem'
+    signature = b'SOME_SIGNATURE_HERE'
+
+    verify_signature(signed_message_path, bank_certificate_path, signature)
+
 ```
 
 ### Encryption and Decryption
