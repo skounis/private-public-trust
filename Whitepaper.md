@@ -14,7 +14,6 @@ In today's digital age, ensuring the security and privacy of sensitive informati
 
 * **Role of a Trusted Authority**: Trusted authorities, often referred to as Certificate Authorities (CAs), play a pivotal role. They validate the identity of certificate holders before issuing certificates. These certificates, in turn, vouch for the authenticity of the associated public keys.
 
-
 ## Generating Private/Public Keys
 
 Before delving into the intricacies of cryptographic communication, let's first understand the concept of private and public keys. In asymmetric cryptography, each entity possesses a unique pair of keys: a private key and a corresponding public key. The private key is kept secret and used for encryption and digital signing, while the public key is shared openly and used for decryption and signature verification.
@@ -244,7 +243,7 @@ if __name__ == "__main__":
 
 ```
 
-### Updated Example 2: Verification of Certificate and Digital Signature by Bob
+### Use Case 2: Verification of Certificate and Digital Signature by Bob
 
 Bob receives a CMS containing the encrypted message and Alice's digital signature. He verifies the authenticity of Alice's certificate and the integrity of the message using the digital signature within the CMS.
 
