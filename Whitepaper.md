@@ -4,6 +4,17 @@
 
 In today's digital age, ensuring the security and privacy of sensitive information is paramount. Cryptographic tools play a crucial role in achieving this goal, offering a robust framework for secure communication. In this article, we'll explore the fundamentals of secure information sharing using private/public keys and trusted certificates. By the end, you'll have a clear understanding of how these tools work together to facilitate secure and verifiable communication.
 
+### Background Information
+* **Private/Public Key Cryptography**: This asymmetric cryptographic technique involves the use of a pair of keys – a private key kept secret and a public key shared openly. Messages encrypted with the public key can only be decrypted with the corresponding private key and vice versa.
+
+* **Trusted Certificates**: Certificates, issued by trusted authorities, serve as digital credentials that bind a public key to an entity, such as an individual or an organization. These certificates are crucial for establishing trust in the authenticity of public keys.
+
+### Rationale and Need for a Trusted Authority
+* **Trust in Digital Communication**: In the digital realm, establishing trust is challenging. Without a reliable mechanism to verify the identity of communicating parties, malicious actors could impersonate legitimate entities, leading to security breaches.
+
+* **Role of a Trusted Authority**: Trusted authorities, often referred to as Certificate Authorities (CAs), play a pivotal role. They validate the identity of certificate holders before issuing certificates. These certificates, in turn, vouch for the authenticity of the associated public keys.
+
+
 ## Generating Private/Public Keys
 
 Before delving into the intricacies of cryptographic communication, let's first understand the concept of private and public keys. In asymmetric cryptography, each entity possesses a unique pair of keys: a private key and a corresponding public key. The private key is kept secret and used for encryption and digital signing, while the public key is shared openly and used for decryption and signature verification.
@@ -109,11 +120,61 @@ holder_certificate = create_certificate(holder_public_key)
 
 ## Examples and Use Cases
 
-Now that we understand the basics of private/public keys and trusted certificates, let's explore some practical examples and use cases:
+Now that we understand the basics of private/public keys and trusted certificates, let's explore some practical examples and use cases.
 
-### Updated Example 1: Encryption and Sending by Alice
+### Key Generation
+We'll start by generating private/public key pairs for both Alice and Bob.
 
-Alice prepares a confidential message, signs it with her private key, encrypts it using Bob's public key, creates a CMS containing both the encrypted message and the signature, and sends it to Bob.
+```python
+# Python code for key generation
+from OpenSSL import crypto
+
+def generate_key_pair(file_path):
+    key = crypto.PKey()
+    key.generate_key(crypto.TYPE_RSA, 2048)
+
+    # Save the key pair to a file
+    with open(file_path, 'wb') as f:
+        f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, key))
+        f.write(crypto.dump_publickey(crypto.FILETYPE_PEM, key))
+
+# Generate key pairs for Alice and Bob
+generate_key_pair('alice_private_key.pem')
+generate_key_pair('bob_private_key.pem')
+```
+
+### Certificate Creation
+With the key pairs in place, the next step is to create certificates for Alice and Bob issued by a trusted authority. These certificates will establish the authenticity of their public keys.
+
+```python
+# Python code for certificate creation
+from OpenSSL import crypto
+
+def create_certificate(subject_name, issuer_certificate_path, issuer_private_key_path, file_path):
+    issuer_cert = crypto.load_certificate(crypto.FILETYPE_PEM, open(issuer_certificate_path, 'rb').read())
+    issuer_key = crypto.load_privatekey(crypto.FILETYPE_PEM, open(issuer_private_key_path, 'rb').read())
+
+    cert = crypto.X509()
+    cert.set_serial_number(1)
+    cert.set_subject(subject_name)
+    cert.set_issuer(issuer_cert.get_subject())
+    cert.set_pubkey(issuer_cert.get_pubkey())
+    cert.gmtime_adj_notBefore(0)
+    cert.gmtime_adj_notAfter(315360000)  # Valid for 10 years
+    cert.sign(issuer_key, 'sha256')
+
+    # Save the certificate to a file
+    with open(file_path, 'wb') as f:
+        f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+
+# Create certificates for Alice and Bob
+create_certificate(crypto.X509Name(b'CN=Alice'), 'bank_certificate.pem', 'bank_private_key.pem', 'alice_certificate.pem')
+create_certificate(crypto.X509Name(b'CN=Bob'), 'bank_certificate.pem', 'bank_private_key.pem', 'bob_certificate.pem')
+```
+
+### Use Case 1: Encryption and Sending by Alice
+
+Now, let's explore how Alice can securely send a confidential message to Bob. She'll encrypt the message using Bob's public key, sign it with her private key, and encapsulate both in a CMS (Cryptographic Message Syntax) structure.
 
 ```python
 # Python code for encryption and sending by Alice with CMS
@@ -188,28 +249,27 @@ if __name__ == "__main__":
 Bob receives a CMS containing the encrypted message and Alice's digital signature. He verifies the authenticity of Alice's certificate and the integrity of the message using the digital signature within the CMS.
 
 ```python
-# Python code to verify certificate and digital signature by Bob with CMS
+# Python code for certificate and signature verification by Bob
 from OpenSSL import crypto
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
 
-def verify_certificate(holder_certificate_path, bank_certificate_path):
+def verify_certificate(sender_certificate_path, trusted_certificate_path):
     try:
-        # Load Alice's certificate and the bank's certificate
-        with open(holder_certificate_path, 'rb') as f:
-            holder_certificate_data = f.read()
-        with open(bank_certificate_path, 'rb') as f:
-            bank_certificate_data = f.read()
+        # Load Alice's certificate and the trusted certificate (e.g., from a bank)
+        sender_certificate_data = open(sender_certificate_path, 'rb').read()
+        trusted_certificate_data = open(trusted_certificate_path, 'rb').read()
 
-        # Verify the certificate chain using the bank's certificate
+        sender_certificate = crypto.load_certificate(crypto.FILETYPE_PEM, sender_certificate_data)
+        trusted_certificate = crypto.load_certificate(crypto.FILETYPE_PEM, trusted_certificate_data)
+
+        # Create a certificate store and add the trusted certificate
         store = crypto.X509Store()
-        store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate_data))
-        store_ctx = crypto.X509StoreContext(store, crypto.load_certificate(crypto.FILETYPE_PEM, holder_certificate_data))
+        store.add_cert(trusted_certificate)
 
-        store_ctx.verify_certificate()
+        # Create a certificate context and set the store
+        context = crypto.X509StoreContext(store, sender_certificate)
+
+        # Verify the certificate chain
+        context.verify_certificate()
 
         print("Certificate verification successful!")
     except FileNotFoundError:
@@ -255,24 +315,41 @@ Bob successfully verifies Alice's certificate and the digital signature, proceed
 
 ```python
 # Python code for decryption and reading by Bob
-from OpenSSL import crypto
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.asymmetric import padding
 
 def decrypt_message(encrypted_message, recipient_private_key_path):
     try:
         # Load Bob's private key
         with open(recipient_private_key_path, 'rb') as f:
-            recipient_private_key = f.read()
+            recipient_private_key_data = f.read()
+        
+        recipient_private_key = serialization.load_pem_private_key(recipient_private_key_data, password=None, backend=default_backend())
 
         # Decrypt the message using Bob's private key
-        key = crypto.load_privatekey(crypto.FILETYPE_PEM, recipient_private_key)
-        decrypted_message = crypto.decrypt(key, encrypted_message, 'aes_256_cbc')
+        decrypted_message = recipient_private_key.decrypt(
+            encrypted_message,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=padding._MGF1_HASH_ALGORITHMS[hashes.SHA256]),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
 
         return decrypted_message.decode('utf-8')
     except FileNotFoundError:
         print("File not found. Please provide correct file paths.")
 
 # Example usage
-if __name__ == "__
+if __name__ == "__main__":
+    encrypted_message = b"SOME_ENCRYPTED_MESSAGE_HERE"
+    recipient_private_key_path = 'bob_private_key.pem'
+
+    decrypted_message = decrypt_message(encrypted_message, recipient_private_key_path)
+    print("Decrypted message:", decrypted_message)
+
 ```
 
 ## Conclusion
