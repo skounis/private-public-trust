@@ -113,11 +113,25 @@ Now that we understand the basics of private/public keys and trusted certificate
 
 ### Example 1: Encryption and Sending by Alice
 
-Alice wants to send a confidential message to Bob securely. She encrypts the message using Bob's public key and sends it over.
+Alice prepares a confidential message, signs it with her private key, encrypts it using Bob's public key, and sends it to Bob.
 
 ```python
 # Python code for encryption and sending by Alice
 from OpenSSL import crypto
+
+def sign_message(message, sender_private_key_path):
+    try:
+        # Load Alice's private key
+        with open(sender_private_key_path, 'rb') as f:
+            sender_private_key = f.read()
+
+        # Sign the message using Alice's private key
+        key = crypto.load_privatekey(crypto.FILETYPE_PEM, sender_private_key)
+        signature = crypto.sign(key, message, 'sha256')
+
+        return signature
+    except FileNotFoundError:
+        print("File not found. Please provide correct file paths.")
 
 def encrypt_message(message, recipient_public_key_path):
     try:
@@ -135,18 +149,20 @@ def encrypt_message(message, recipient_public_key_path):
 # Example usage
 if __name__ == "__main__":
     message = b"Hello Bob, this is a confidential message for you."
+    sender_private_key_path = 'alice_private_key.pem'
     recipient_public_key_path = 'bob_public_key.pem'
 
+    signature = sign_message(message, sender_private_key_path)
     encrypted_message = encrypt_message(message, recipient_public_key_path)
     print("Encrypted message:", encrypted_message)
 ```
 
-### Example 2: Verification of Public Key/Certificate by Bob
+### Example 2: Verification of Certificate and Digital Signature by Bob
 
-Bob receives an encrypted message from Alice and wants to verify the authenticity of Alice's public key with the help of the trusted authority (e.g., a bank).
+Bob receives an encrypted message from Alice and wants to verify the authenticity of Alice's certificate as well as the integrity of the message using the digital signature.
 
 ```python
-# Python code to verify public key/certificate by Bob
+# Python code to verify certificate and digital signature by Bob
 from OpenSSL import crypto
 
 def verify_certificate(holder_certificate_path, bank_certificate_path):
@@ -170,17 +186,38 @@ def verify_certificate(holder_certificate_path, bank_certificate_path):
     except crypto.X509StoreContextError as e:
         print("Certificate verification failed:", e)
 
+def verify_signature(message, signature, sender_certificate_path):
+    try:
+        # Load Alice's certificate
+        with open(sender_certificate_path, 'rb') as f:
+            sender_certificate = f.read()
+
+        # Extract public key from Alice's certificate
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, sender_certificate)
+        pub_key = cert.get_pubkey()
+
+        # Verify the digital signature using Alice's public key
+        crypto.verify(pub_key, signature, message, 'sha256')
+        print("Digital signature verification successful!")
+    except FileNotFoundError:
+        print("File not found. Please provide correct file paths.")
+    except crypto.Error as e:
+        print("Digital signature verification failed:", e)
+
 # Example usage
 if __name__ == "__main__":
-    holder_certificate_path = 'alice_certificate.pem'
+    encrypted_message = b"SOME_ENCRYPTED_MESSAGE_HERE"
+    signature = b'SOME_SIGNATURE_HERE'
+    sender_certificate_path = 'alice_certificate.pem'
     bank_certificate_path = 'bank_certificate.pem'
 
-    verify_certificate(holder_certificate_path, bank_certificate_path)
+    verify_certificate(sender_certificate_path, bank_certificate_path)
+    verify_signature(encrypted_message, signature, sender_certificate_path)
 ```
 
 ### Example 3: Decryption and Reading by Bob
 
-Bob successfully verifies Alice's public key/certificate and proceeds to decrypt and read the message she sent.
+Bob successfully verifies Alice's certificate and the digital signature, proceeds to decrypt the message, and reads it.
 
 ```python
 # Python code for decryption and reading by Bob
@@ -201,15 +238,7 @@ def decrypt_message(encrypted_message, recipient_private_key_path):
         print("File not found. Please provide correct file paths.")
 
 # Example usage
-if __name__ == "__main__":
-    encrypted_message = b"SOME_ENCRYPTED_MESSAGE_HERE"
-    recipient_private_key_path = 'bob_private_key.pem'
-
-    decrypted_message = decrypt_message(encrypted_message, recipient_private_key_path)
-    print("Decrypted message:", decrypted_message)
-```
-
-These examples now follow the sequence you provided, ensuring that the outcome of one example serves as the input for the next. Let me know if you need further adjustments or if there's anything else I can assist you with!
+if __name__ == "__
 
 ## Conclusion
 
