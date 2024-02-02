@@ -31,62 +31,24 @@ Let's consider a scenario where a bank issues a certificate to verify the identi
 2. The bank conducts identity verification procedures to ensure the authenticity of the requester.
 3. Upon successful verification, the bank signs the individual's public key with its private key, creating a certificate that links the public key to the holder's identity.
 
-## Examples and Use Cases
+Before creating a certificate, let's first understand the ".pem" files. ".pem" (Privacy-Enhanced Mail) files are commonly used to store cryptographic objects such as keys and certificates. They are encoded in Base64 and are often used for key exchange between systems.
 
-Now that we understand the basics of private/public keys and trusted certificates, let's explore some practical examples and use cases:
+To generate a private key and a self-signed certificate using OpenSSL, follow these steps:
 
-### Digital Signature Verification
-
-In this scenario, Bob receives a digitally signed message from Alice. To verify the signature and authenticate Alice's identity, Bob uses Alice's public key along with the certificate issued by a trusted entity (e.g., a bank).
-
-```python
-# Python code to verify digital signature
-from OpenSSL import crypto
-
-# Load Alice's signed message and the bank's certificate
-with open('signed_message.txt', 'rb') as f:
-    signed_message = f.read()
-with open('bank_certificate.pem', 'rb') as f:
-    bank_certificate = f.read()
-
-# Extract public key from the bank's certificate
-cert = crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate)
-pub_key = cert.get_pubkey()
-
-# Verify the signature using Alice's public key and the bank's certificate
-try:
-    crypto.verify(pub_key, signed_message, signature, 'sha256')
-    print("Signature verification successful!")
-except crypto.Error as e:
-    print("Signature verification failed:", e)
+1. Generate a private key:
+```bash
+openssl genpkey -algorithm RSA -out bank_private_key.pem
 ```
 
-### Encryption and Decryption
-
-Alice wants to send a confidential message to Bob securely. She encrypts the message using Bob's public key and sends it over. Bob decrypts the message using his private key, ensuring that only he can access the original content.
-
-```python
-# Python code for encryption and decryption
-from OpenSSL import crypto
-
-# Load Bob's private key and Alice's encrypted message
-with open('bob_private_key.pem', 'rb') as f:
-    bob_private_key = f.read()
-with open('encrypted_message.txt', 'rb') as f:
-    encrypted_message = f.read()
-
-# Decrypt the message using Bob's private key
-key = crypto.load_privatekey(crypto.FILETYPE_PEM, bob_private_key)
-decrypted_message = crypto.decrypt(key, encrypted_message, 'aes_256_cbc')
-
-print("Decrypted message:", decrypted_message.decode('utf-8'))
+2. Generate a self-signed certificate using the private key:
+```bash
+openssl req -new -x509 -key bank_private_key.pem -out bank_certificate.pem -days 365
 ```
 
-## Complete Codebase
-
-To tie everything together, here's a complete codebase in Python demonstrating the concepts discussed above:
+Now that we have the bank's private key and certificate, we can proceed with creating a certificate signed by the bank.
 
 ```python
+# Python code to generate a key pair and create a certificate signed by the bank
 from OpenSSL import crypto
 import os
 
@@ -136,6 +98,110 @@ def create_certificate(holder_public_key):
 
     return cert
 
+# Generate key pair for the holder
+holder_private_key = generate_key_pair()
+holder_public_key = holder_private_key.to_cryptography_key().public_key()
+
+# Create a certificate signed by the bank
+holder_certificate = create_certificate(holder_public_key)
+
+```
+
+## Examples and Use Cases
+
+Now that we understand the basics of private/public keys and trusted certificates, let's explore some practical examples and use cases:
+
+### Digital Signature Verification
+
+In this scenario, Bob receives a digitally signed message from Alice. To verify the signature and authenticate Alice's identity, Bob uses Alice's public key along with the certificate issued by a trusted entity (e.g., a bank).
+
+```python
+# Python code to verify digital signature
+from OpenSSL import crypto
+
+# Load Alice's signed message and the bank's certificate
+with open('signed_message.txt', 'rb') as f:
+    signed_message = f.read()
+with open('bank_certificate.pem', 'rb') as f:
+    bank_certificate = f.read()
+
+# Extract public key from the bank's certificate
+cert = crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate)
+pub_key = cert.get_pubkey()
+
+# Verify the signature using Alice's public key and the bank's certificate
+try:
+    crypto.verify(pub_key, signature, signed_message, 'sha256')
+    print("Signature verification successful!")
+except crypto.Error as e:
+    print("Signature verification failed:", e)
+```
+
+### Encryption and Decryption
+
+Alice wants to send a confidential message to Bob securely. She encrypts the message using Bob's public key and sends it over. Bob decrypts the message using his private key, ensuring that only he can access the original content.
+
+```python
+# Python code for encryption and decryption
+from OpenSSL import crypto
+
+# Load Bob's private key and Alice's encrypted message
+with open('bob_private_key.pem', 'rb') as f:
+    bob_private_key = f.read()
+with open('encrypted_message.txt', 'rb') as f:
+    encrypted_message = f.read()
+
+# Decrypt the message using Bob's private key
+key = crypto.load_privatekey(crypto.FILETYPE_PEM, bob_private_key)
+decrypted_message = crypto.decrypt(key, encrypted_message, 'aes_256_cbc')
+
+print("Decrypted message:", decrypted_message.decode('utf-8'))
+```
+
+## Conclusion
+
+In this article, we've explored the essential components of secure information sharing using private/public keys and trusted certificates. By generating key pairs, creating trusted certificates, and employing cryptographic techniques such as digital signature verification and encryption, individuals and organizations can establish secure channels for communication. Understanding these concepts and their practical applications is crucial in today's digital landscape, where privacy and security are of utmost importance.
+
+## Complete Codebase
+
+To tie everything together, here's a complete codebase in Python demonstrating the concepts discussed above:
+
+```python
+from OpenSSL import crypto
+
+# Function to generate key pair
+def generate_key_pair():
+    key = crypto.PKey()
+    key.generate_key(crypto.TYPE_RSA, 2048)
+    return key
+
+# Function to create a certificate signed by the bank
+def create_certificate(holder_public_key):
+    # Load bank's private key (for demonstration, using a self-signed certificate)
+    with open('bank_private_key.pem', 'rb') as f:
+        bank_private_key = f.read()
+
+    # Load bank's certificate (for demonstration, using a self-signed certificate)
+    with open('bank_certificate.pem', 'rb') as f:
+        bank_certificate = f.read()
+
+    # Create an X.509 certificate object
+    cert = crypto.X509()
+    cert.set_pubkey(holder_public_key)
+
+    # Set certificate's subject and issuer information (for demonstration purposes)
+    cert.get_subject().CN = "Holder's Identity"
+    cert.set_issuer(crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate).get_subject())
+
+    # Set validity period (for demonstration purposes)
+    cert.gmtime_adj_notBefore(0)
+    cert.gmtime_adj_notAfter(31536000)  # 1 year validity
+
+    # Sign the certificate using the bank's private key
+    cert.sign(crypto.load_privatekey(crypto.FILETYPE_PEM, bank_private_key), 'sha256')
+
+    return cert
+
 # Function to simulate digital signature verification
 def verify_signature(signed_message, signature, bank_certificate):
     try:
@@ -155,23 +221,25 @@ def encrypt_decrypt(message, recipient_public_key, sender_private_key):
 
     return decrypted_message
 
-# Generate key pair for the holder
-holder_private_key = generate_key_pair()
-holder_public_key = holder_private_key.to_cryptography_key().public_key()
+# Example usage
+if __name__ == "__main__":
+    # Generate key pair for the holder
+    holder_private_key = generate_key_pair()
+    holder_public_key = holder_private_key.to_cryptography_key().public_key()
 
-# Create a certificate signed by the bank
-holder_certificate = create_certificate(holder_public_key)
+    # Create a certificate signed by the bank
+    holder_certificate = create_certificate(holder_public_key)
 
-# Simulate digital signature verification
-signed_message = b"Hello, this is a signed message."
-signature = crypto.sign(holder_private_key, signed_message, 'sha256')
-verify_signature(signed_message, signature, 'bank_certificate.pem')
+    # Simulate digital signature verification
+    signed_message = b"Hello, this is a signed message."
+    signature = crypto.sign(holder_private_key, signed_message, 'sha256')
+    verify_signature(signed_message, signature, 'bank_certificate.pem')
 
-# Simulate encryption and decryption
-recipient_private_key = generate_key_pair()
-recipient_public_key = recipient_private_key.to_cryptography_key().public_key()
-message = b"Hello, this is a secret message."
-decrypted_message = encrypt_decrypt(message, recipient_public_key, holder_private_key)
-print("Decrypted message:", decrypted_message.decode('utf-8'))
+    # Simulate encryption and decryption
+    recipient_private_key = generate_key_pair()
+    recipient_public_key = recipient_private_key.to_cryptography_key().public_key()
+    message = b"Hello, this is a secret message."
+    decrypted_message = encrypt_decrypt(message, recipient_public_key, holder_private_key)
+    print("Decrypted message:", decrypted_message.decode('utf-8'))
 
 ```
