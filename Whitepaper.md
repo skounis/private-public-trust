@@ -157,17 +157,29 @@ Alice wants to send a confidential message to Bob securely. She encrypts the mes
 # Python code for encryption and decryption
 from OpenSSL import crypto
 
-# Load Bob's private key and Alice's encrypted message
-with open('bob_private_key.pem', 'rb') as f:
-    bob_private_key = f.read()
-with open('encrypted_message.txt', 'rb') as f:
-    encrypted_message = f.read()
+def encrypt_decrypt(message, recipient_public_key_path, sender_private_key_path):
+    try:
+        # Load Bob's private key and Alice's encrypted message
+        with open(recipient_public_key_path, 'rb') as f:
+            recipient_public_key = f.read()
+        with open(sender_private_key_path, 'rb') as f:
+            sender_private_key = f.read()
 
-# Decrypt the message using Bob's private key
-key = crypto.load_privatekey(crypto.FILETYPE_PEM, bob_private_key)
-decrypted_message = crypto.decrypt(key, encrypted_message, 'aes_256_cbc')
+        # Decrypt the message using Bob's private key
+        key = crypto.load_privatekey(crypto.FILETYPE_PEM, sender_private_key)
+        decrypted_message = crypto.decrypt(key, message, 'aes_256_cbc')
 
-print("Decrypted message:", decrypted_message.decode('utf-8'))
+        print("Decrypted message:", decrypted_message.decode('utf-8'))
+    except FileNotFoundError:
+        print("File not found. Please provide correct file paths.")
+
+# Example usage
+if __name__ == "__main__":
+    message = b"Hello, this is a secret message."
+    recipient_public_key_path = 'bob_public_key.pem'
+    sender_private_key_path = 'alice_private_key.pem'
+
+    encrypt_decrypt(message, recipient_public_key_path, sender_private_key_path)
 ```
 
 ## Conclusion
