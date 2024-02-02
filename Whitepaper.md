@@ -111,23 +111,34 @@ holder_certificate = create_certificate(holder_public_key)
 
 Now that we understand the basics of private/public keys and trusted certificates, let's explore some practical examples and use cases:
 
-### Example 1: Encryption and Sending by Alice
+### Updated Example 1: Encryption and Sending by Alice
 
-Alice prepares a confidential message, signs it with her private key, encrypts it using Bob's public key, and sends it to Bob.
+Alice prepares a confidential message, signs it with her private key, encrypts it using Bob's public key, creates a CMS containing both the encrypted message and the signature, and sends it to Bob.
 
 ```python
-# Python code for encryption and sending by Alice
+# Python code for encryption and sending by Alice with CMS
 from OpenSSL import crypto
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 
 def sign_message(message, sender_private_key_path):
     try:
         # Load Alice's private key
         with open(sender_private_key_path, 'rb') as f:
-            sender_private_key = f.read()
+            sender_private_key_data = f.read()
 
         # Sign the message using Alice's private key
-        key = crypto.load_privatekey(crypto.FILETYPE_PEM, sender_private_key)
-        signature = crypto.sign(key, message, 'sha256')
+        private_key = load_pem_private_key(sender_private_key_data, password=None, backend=default_backend())
+        signature = private_key.sign(message, padding.PKCS1v15(), hashes.SHA256())
 
         return signature
     except FileNotFoundError:
@@ -137,14 +148,32 @@ def encrypt_message(message, recipient_public_key_path):
     try:
         # Load Bob's public key
         with open(recipient_public_key_path, 'rb') as f:
-            recipient_public_key = f.read()
+            recipient_public_key_data = f.read()
+        
+        recipient_public_key = serialization.load_pem_public_key(recipient_public_key_data, backend=default_backend())
 
         # Encrypt the message using Bob's public key
-        encrypted_message = crypto.encrypt(recipient_public_key, message, 'aes_256_cbc')
+        encrypted_message = recipient_public_key.encrypt(
+            message,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
 
         return encrypted_message
     except FileNotFoundError:
         print("File not found. Please provide correct file paths.")
+
+def create_cms(encrypted_message, signature):
+    try:
+        cms = encrypted_message + b'\n' + signature
+        with open('alice_message.cms', 'wb') as f:
+            f.write(cms)
+        print("CMS created and saved as 'alice_message.cms'")
+    except Exception as e:
+        print("Error creating CMS:", e)
 
 # Example usage
 if __name__ == "__main__":
@@ -154,29 +183,37 @@ if __name__ == "__main__":
 
     signature = sign_message(message, sender_private_key_path)
     encrypted_message = encrypt_message(message, recipient_public_key_path)
+    create_cms(encrypted_message, signature)
     print("Encrypted message:", encrypted_message)
+    print("Signature:", signature)
+
 ```
 
-### Example 2: Verification of Certificate and Digital Signature by Bob
+### Updated Example 2: Verification of Certificate and Digital Signature by Bob
 
-Bob receives an encrypted message from Alice and wants to verify the authenticity of Alice's certificate as well as the integrity of the message using the digital signature.
+Bob receives a CMS containing the encrypted message and Alice's digital signature. He verifies the authenticity of Alice's certificate and the integrity of the message using the digital signature within the CMS.
 
 ```python
-# Python code to verify certificate and digital signature by Bob
+# Python code to verify certificate and digital signature by Bob with CMS
 from OpenSSL import crypto
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 
 def verify_certificate(holder_certificate_path, bank_certificate_path):
     try:
         # Load Alice's certificate and the bank's certificate
         with open(holder_certificate_path, 'rb') as f:
-            holder_certificate = f.read()
+            holder_certificate_data = f.read()
         with open(bank_certificate_path, 'rb') as f:
-            bank_certificate = f.read()
+            bank_certificate_data = f.read()
 
         # Verify the certificate chain using the bank's certificate
         store = crypto.X509Store()
-        store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate))
-        store_ctx = crypto.X509StoreContext(store, crypto.load_certificate(crypto.FILETYPE_PEM, holder_certificate))
+        store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate_data))
+        store_ctx = crypto.X509StoreContext(store, crypto.load_certificate(crypto.FILETYPE_PEM, holder_certificate_data))
 
         store_ctx.verify_certificate()
 
@@ -186,18 +223,17 @@ def verify_certificate(holder_certificate_path, bank_certificate_path):
     except crypto.X509StoreContextError as e:
         print("Certificate verification failed:", e)
 
-def verify_signature(message, signature, sender_certificate_path):
+def verify_signature(signature, message, sender_certificate_path):
     try:
         # Load Alice's certificate
         with open(sender_certificate_path, 'rb') as f:
-            sender_certificate = f.read()
+            sender_certificate_data = f.read()
 
-        # Extract public key from Alice's certificate
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, sender_certificate)
-        pub_key = cert.get_pubkey()
+        sender_certificate = crypto.load_certificate(crypto.FILETYPE_PEM, sender_certificate_data)
+        sender_public_key = sender_certificate.get_pubkey()
 
         # Verify the digital signature using Alice's public key
-        crypto.verify(pub_key, signature, message, 'sha256')
+        crypto.verify(sender_public_key, signature, message, 'sha256')
         print("Digital signature verification successful!")
     except FileNotFoundError:
         print("File not found. Please provide correct file paths.")
@@ -206,13 +242,17 @@ def verify_signature(message, signature, sender_certificate_path):
 
 # Example usage
 if __name__ == "__main__":
+    cms_file_path = 'alice_message.cms'
+    bank_certificate_path = 'bank_certificate.pem'
+
+    # Extract encrypted message and signature from the CMS file
+    # (Assuming you have a method to extract components from the CMS)
     encrypted_message = b"SOME_ENCRYPTED_MESSAGE_HERE"
     signature = b'SOME_SIGNATURE_HERE'
     sender_certificate_path = 'alice_certificate.pem'
-    bank_certificate_path = 'bank_certificate.pem'
 
     verify_certificate(sender_certificate_path, bank_certificate_path)
-    verify_signature(encrypted_message, signature, sender_certificate_path)
+    verify_signature(signature, encrypted_message, sender_certificate_path)
 ```
 
 ### Example 3: Decryption and Reading by Bob
