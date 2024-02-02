@@ -123,12 +123,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
 
 def sign_message(message, sender_private_key_path):
     try:
@@ -279,6 +273,7 @@ def decrypt_message(encrypted_message, recipient_private_key_path):
 
 # Example usage
 if __name__ == "__
+```
 
 ## Conclusion
 
