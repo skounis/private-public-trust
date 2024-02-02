@@ -111,159 +111,106 @@ holder_certificate = create_certificate(holder_public_key)
 
 Now that we understand the basics of private/public keys and trusted certificates, let's explore some practical examples and use cases:
 
-### Digital Signature Verification
+### Example 1: Encryption and Sending by Alice
 
-In this scenario, Bob receives a digitally signed message from Alice. To verify the signature and authenticate Alice's identity, Bob uses Alice's public key along with the certificate issued by a trusted entity (e.g., a bank).
+Alice wants to send a confidential message to Bob securely. She encrypts the message using Bob's public key and sends it over.
 
 ```python
-# Python code to verify digital signature
+# Python code for encryption and sending by Alice
 from OpenSSL import crypto
 
-def verify_signature(signed_message_path, bank_certificate_path, signature):
+def encrypt_message(message, recipient_public_key_path):
     try:
-        # Load Alice's signed message and the bank's certificate
-        with open(signed_message_path, 'rb') as f:
-            signed_message = f.read()
+        # Load Bob's public key
+        with open(recipient_public_key_path, 'rb') as f:
+            recipient_public_key = f.read()
+
+        # Encrypt the message using Bob's public key
+        encrypted_message = crypto.encrypt(recipient_public_key, message, 'aes_256_cbc')
+
+        return encrypted_message
+    except FileNotFoundError:
+        print("File not found. Please provide correct file paths.")
+
+# Example usage
+if __name__ == "__main__":
+    message = b"Hello Bob, this is a confidential message for you."
+    recipient_public_key_path = 'bob_public_key.pem'
+
+    encrypted_message = encrypt_message(message, recipient_public_key_path)
+    print("Encrypted message:", encrypted_message)
+```
+
+### Example 2: Verification of Public Key/Certificate by Bob
+
+Bob receives an encrypted message from Alice and wants to verify the authenticity of Alice's public key with the help of the trusted authority (e.g., a bank).
+
+```python
+# Python code to verify public key/certificate by Bob
+from OpenSSL import crypto
+
+def verify_certificate(holder_certificate_path, bank_certificate_path):
+    try:
+        # Load Alice's certificate and the bank's certificate
+        with open(holder_certificate_path, 'rb') as f:
+            holder_certificate = f.read()
         with open(bank_certificate_path, 'rb') as f:
             bank_certificate = f.read()
 
-        # Extract public key from the bank's certificate
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate)
-        pub_key = cert.get_pubkey()
+        # Verify the certificate chain using the bank's certificate
+        store = crypto.X509Store()
+        store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate))
+        store_ctx = crypto.X509StoreContext(store, crypto.load_certificate(crypto.FILETYPE_PEM, holder_certificate))
 
-        # Verify the signature using Alice's public key and the bank's certificate
-        crypto.verify(pub_key, signature, signed_message, 'sha256')
-        print("Signature verification successful!")
+        store_ctx.verify_certificate()
+
+        print("Certificate verification successful!")
     except FileNotFoundError:
         print("File not found. Please provide correct file paths.")
-    except crypto.Error as e:
-        print("Signature verification failed:", e)
+    except crypto.X509StoreContextError as e:
+        print("Certificate verification failed:", e)
 
 # Example usage
 if __name__ == "__main__":
-    signed_message_path = 'signed_message.txt'
+    holder_certificate_path = 'alice_certificate.pem'
     bank_certificate_path = 'bank_certificate.pem'
-    signature = b'SOME_SIGNATURE_HERE'
 
-    verify_signature(signed_message_path, bank_certificate_path, signature)
-
+    verify_certificate(holder_certificate_path, bank_certificate_path)
 ```
 
-### Encryption and Decryption
+### Example 3: Decryption and Reading by Bob
 
-Alice wants to send a confidential message to Bob securely. She encrypts the message using Bob's public key and sends it over. Bob decrypts the message using his private key, ensuring that only he can access the original content.
+Bob successfully verifies Alice's public key/certificate and proceeds to decrypt and read the message she sent.
 
 ```python
-# Python code for encryption and decryption
+# Python code for decryption and reading by Bob
 from OpenSSL import crypto
 
-def encrypt_decrypt(message, recipient_public_key_path, sender_private_key_path):
+def decrypt_message(encrypted_message, recipient_private_key_path):
     try:
-        # Load Bob's private key and Alice's encrypted message
-        with open(recipient_public_key_path, 'rb') as f:
-            recipient_public_key = f.read()
-        with open(sender_private_key_path, 'rb') as f:
-            sender_private_key = f.read()
+        # Load Bob's private key
+        with open(recipient_private_key_path, 'rb') as f:
+            recipient_private_key = f.read()
 
         # Decrypt the message using Bob's private key
-        key = crypto.load_privatekey(crypto.FILETYPE_PEM, sender_private_key)
-        decrypted_message = crypto.decrypt(key, message, 'aes_256_cbc')
+        key = crypto.load_privatekey(crypto.FILETYPE_PEM, recipient_private_key)
+        decrypted_message = crypto.decrypt(key, encrypted_message, 'aes_256_cbc')
 
-        print("Decrypted message:", decrypted_message.decode('utf-8'))
+        return decrypted_message.decode('utf-8')
     except FileNotFoundError:
         print("File not found. Please provide correct file paths.")
 
 # Example usage
 if __name__ == "__main__":
-    message = b"Hello, this is a secret message."
-    recipient_public_key_path = 'bob_public_key.pem'
-    sender_private_key_path = 'alice_private_key.pem'
+    encrypted_message = b"SOME_ENCRYPTED_MESSAGE_HERE"
+    recipient_private_key_path = 'bob_private_key.pem'
 
-    encrypt_decrypt(message, recipient_public_key_path, sender_private_key_path)
+    decrypted_message = decrypt_message(encrypted_message, recipient_private_key_path)
+    print("Decrypted message:", decrypted_message)
 ```
+
+These examples now follow the sequence you provided, ensuring that the outcome of one example serves as the input for the next. Let me know if you need further adjustments or if there's anything else I can assist you with!
 
 ## Conclusion
 
 In this article, we've explored the essential components of secure information sharing using private/public keys and trusted certificates. By generating key pairs, creating trusted certificates, and employing cryptographic techniques such as digital signature verification and encryption, individuals and organizations can establish secure channels for communication. Understanding these concepts and their practical applications is crucial in today's digital landscape, where privacy and security are of utmost importance.
-
-## Complete Codebase
-
-To tie everything together, here's a complete codebase in Python demonstrating the concepts discussed above:
-
-```python
-from OpenSSL import crypto
-
-# Function to generate key pair
-def generate_key_pair():
-    key = crypto.PKey()
-    key.generate_key(crypto.TYPE_RSA, 2048)
-    return key
-
-# Function to create a certificate signed by the bank
-def create_certificate(holder_public_key):
-    # Load bank's private key (for demonstration, using a self-signed certificate)
-    with open('bank_private_key.pem', 'rb') as f:
-        bank_private_key = f.read()
-
-    # Load bank's certificate (for demonstration, using a self-signed certificate)
-    with open('bank_certificate.pem', 'rb') as f:
-        bank_certificate = f.read()
-
-    # Create an X.509 certificate object
-    cert = crypto.X509()
-    cert.set_pubkey(holder_public_key)
-
-    # Set certificate's subject and issuer information (for demonstration purposes)
-    cert.get_subject().CN = "Holder's Identity"
-    cert.set_issuer(crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate).get_subject())
-
-    # Set validity period (for demonstration purposes)
-    cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(31536000)  # 1 year validity
-
-    # Sign the certificate using the bank's private key
-    cert.sign(crypto.load_privatekey(crypto.FILETYPE_PEM, bank_private_key), 'sha256')
-
-    return cert
-
-# Function to simulate digital signature verification
-def verify_signature(signed_message, signature, bank_certificate):
-    try:
-        pub_key = crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate).get_pubkey()
-        crypto.verify(pub_key, signature, signed_message, 'sha256')
-        print("Signature verification successful!")
-    except crypto.Error as e:
-        print("Signature verification failed:", e)
-
-# Function to simulate encryption and decryption
-def encrypt_decrypt(message, recipient_public_key, sender_private_key):
-    # Encrypt the message using the recipient's public key
-    encrypted_message = crypto.encrypt(recipient_public_key, message, 'aes_256_cbc')
-
-    # Decrypt the message using the sender's private key
-    decrypted_message = crypto.decrypt(sender_private_key, encrypted_message, 'aes_256_cbc')
-
-    return decrypted_message
-
-# Example usage
-if __name__ == "__main__":
-    # Generate key pair for the holder
-    holder_private_key = generate_key_pair()
-    holder_public_key = holder_private_key.to_cryptography_key().public_key()
-
-    # Create a certificate signed by the bank
-    holder_certificate = create_certificate(holder_public_key)
-
-    # Simulate digital signature verification
-    signed_message = b"Hello, this is a signed message."
-    signature = crypto.sign(holder_private_key, signed_message, 'sha256')
-    verify_signature(signed_message, signature, 'bank_certificate.pem')
-
-    # Simulate encryption and decryption
-    recipient_private_key = generate_key_pair()
-    recipient_public_key = recipient_private_key.to_cryptography_key().public_key()
-    message = b"Hello, this is a secret message."
-    decrypted_message = encrypt_decrypt(message, recipient_public_key, holder_private_key)
-    print("Decrypted message:", decrypted_message.decode('utf-8'))
-
-```
