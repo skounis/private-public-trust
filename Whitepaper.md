@@ -88,6 +88,7 @@ To tie everything together, here's a complete codebase in Python demonstrating t
 
 ```python
 from OpenSSL import crypto
+import os
 
 # Function to generate key pair
 def generate_key_pair():
@@ -97,11 +98,24 @@ def generate_key_pair():
 
 # Function to create a certificate signed by the bank
 def create_certificate(holder_public_key):
-    # Load bank's private key (for demonstration, using a self-signed certificate)
+    # Generate bank's private key and certificate if not already present
+    if not os.path.isfile('bank_private_key.pem') or not os.path.isfile('bank_certificate.pem'):
+        bank_key = generate_key_pair()
+        bank_cert = crypto.X509()
+        bank_cert.set_pubkey(bank_key)
+        bank_cert.gmtime_adj_notBefore(0)
+        bank_cert.gmtime_adj_notAfter(31536000)  # 1 year validity
+        bank_cert.sign(bank_key, 'sha256')
+
+        # Save bank's private key and certificate to files
+        with open('bank_private_key.pem', 'wb') as f:
+            f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, bank_key))
+        with open('bank_certificate.pem', 'wb') as f:
+            f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, bank_cert))
+
+    # Load bank's private key and certificate
     with open('bank_private_key.pem', 'rb') as f:
         bank_private_key = f.read()
-
-    # Load bank's certificate (for demonstration, using a self-signed certificate)
     with open('bank_certificate.pem', 'rb') as f:
         bank_certificate = f.read()
 
@@ -141,25 +155,23 @@ def encrypt_decrypt(message, recipient_public_key, sender_private_key):
 
     return decrypted_message
 
-# Example usage
-if __name__ == "__main__":
-    # Generate key pair for the holder
-    holder_private_key = generate_key_pair()
-    holder_public_key = holder_private_key.to_cryptography_key().public_key()
+# Generate key pair for the holder
+holder_private_key = generate_key_pair()
+holder_public_key = holder_private_key.to_cryptography_key().public_key()
 
-    # Create a certificate signed by the bank
-    holder_certificate = create_certificate(holder_public_key)
+# Create a certificate signed by the bank
+holder_certificate = create_certificate(holder_public_key)
 
-    # Simulate digital signature verification
-    signed_message = b"Hello, this is a signed message."
-    signature = crypto.sign(holder_private_key, signed_message, 'sha256')
-    verify_signature(signed_message, signature, 'bank_certificate.pem')
+# Simulate digital signature verification
+signed_message = b"Hello, this is a signed message."
+signature = crypto.sign(holder_private_key, signed_message, 'sha256')
+verify_signature(signed_message, signature, 'bank_certificate.pem')
 
-    # Simulate encryption and decryption
-    recipient_private_key = generate_key_pair()
-    recipient_public_key = recipient_private_key.to_cryptography_key().public_key()
-    message = b"Hello, this is a secret message."
-    decrypted_message = encrypt_decrypt(message, recipient_public_key, holder_private_key)
-    print("Decrypted message:", decrypted_message.decode('utf-8'))
+# Simulate encryption and decryption
+recipient_private_key = generate_key_pair()
+recipient_public_key = recipient_private_key.to_cryptography_key().public_key()
+message = b"Hello, this is a secret message."
+decrypted_message = encrypt_decrypt(message, recipient_public_key, holder_private_key)
+print("Decrypted message:", decrypted_message.decode('utf-8'))
 
 ```
