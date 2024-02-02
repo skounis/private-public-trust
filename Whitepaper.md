@@ -39,14 +39,54 @@ Now that we understand the basics of private/public keys and trusted certificate
 
 In this scenario, Bob receives a digitally signed message from Alice. To verify the signature and authenticate Alice's identity, Bob uses Alice's public key along with the certificate issued by a trusted entity (e.g., a bank).
 
+```python
+# Python code to verify digital signature
+from OpenSSL import crypto
+
+# Load Alice's signed message and the bank's certificate
+with open('signed_message.txt', 'rb') as f:
+    signed_message = f.read()
+with open('bank_certificate.pem', 'rb') as f:
+    bank_certificate = f.read()
+
+# Extract public key from the bank's certificate
+cert = crypto.load_certificate(crypto.FILETYPE_PEM, bank_certificate)
+pub_key = cert.get_pubkey()
+
+# Verify the signature using Alice's public key and the bank's certificate
+try:
+    crypto.verify(pub_key, signed_message, signature, 'sha256')
+    print("Signature verification successful!")
+except crypto.Error as e:
+    print("Signature verification failed:", e)
+```
+
 ### Encryption and Decryption
 
 Alice wants to send a confidential message to Bob securely. She encrypts the message using Bob's public key and sends it over. Bob decrypts the message using his private key, ensuring that only he can access the original content.
+
+```python
+# Python code for encryption and decryption
+from OpenSSL import crypto
+
+# Load Bob's private key and Alice's encrypted message
+with open('bob_private_key.pem', 'rb') as f:
+    bob_private_key = f.read()
+with open('encrypted_message.txt', 'rb') as f:
+    encrypted_message = f.read()
+
+# Decrypt the message using Bob's private key
+key = crypto.load_privatekey(crypto.FILETYPE_PEM, bob_private_key)
+decrypted_message = crypto.decrypt(key, encrypted_message, 'aes_256_cbc')
+
+print("Decrypted message:", decrypted_message.decode('utf-8'))
+```
 
 ## Complete Codebase
 
 To tie everything together, here's a complete codebase in Python demonstrating the concepts discussed above:
 
 ```python
-# Code snippets to be included here...
+# Complete Python codebase demonstrating secure information sharing
+# Include code snippets for key generation, certificate creation, signature verification, encryption, and decryption.
 ```
