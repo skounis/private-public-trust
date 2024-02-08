@@ -1,0 +1,9 @@
+/bobs/*
+/*.crt
+/*.pem
+/*.key
+/*.cnf
+/*.csr
+/*.srl
+/*.bin
+/*.sha256
