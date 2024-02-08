@@ -68,11 +68,12 @@ Alice, a customer of a financial institution, needs to securely transfer sensiti
 In this real-world example, Alice securely transfers sensitive financial information to Bob using private/public key cryptography and trusted certificates issued by a reputable Bank. By following established protocols and leveraging trusted authorities, such as the Bank, organizations and individuals can establish secure communication channels that protect the confidentiality, authenticity, and integrity of their data.
 
 
-## Practical Implementation: Setting Up the Scene
+## Hands-On Implementation with OpenSSL
 
-To demonstrate the practical application of private/public key cryptography and trusted certificates, we'll first set up the necessary infrastructure by generating keys and certificates using OpenSSL.
+To demonstrate the practical application of private/public key cryptography and trusted certificates, let's explore a hands-on example using OpenSSL.
 
 ### Generate Keys and Certificates with OpenSSL
+First, let's set up the necessary infrastructure by generating keys and certificates using OpenSSL.
 
 Here's a basic example of how you can use OpenSSL and the command line (bash) to generate private/public key pairs and a self-signed certificate:
 
@@ -104,11 +105,9 @@ openssl x509 -req -days 365 -in alice.csr -CA bank_cert.crt -CAkey bank_private.
 
 The `bank_cert.srl` file generated serves as a serial number database for tracking the issuance of certificates by OpenSSL, ensuring the uniqueness and integrity of each certificate.
 
-## Practical Example: Secure Communication Between Alice and Bob
+### Alice Encrypts and Signs and Transmits the Message
 
 Now that we have generated the necessary keys and certificates, let's illustrate the process of secure communication between Alice and Bob, with the Bank acting as the trust provider.
-
-### Alice Encrypts and Signs the Message
 
 In addition to encrypting the message, Alice also needs to sign it using her private key to ensure authenticity. Here's how she can encrypt the message and sign it using OpenSSL:
 
